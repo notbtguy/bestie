@@ -120,7 +120,7 @@ class MainActivity : AppCompatActivity(),
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
         } else if (isOnline()) {
-            webView.loadUrl(Constants.HOME_URL)
+            webView.loadUrl(Constants.startUrl())
         } else {
             showOffline(true)
         }
@@ -219,7 +219,7 @@ class MainActivity : AppCompatActivity(),
     private fun retry() {
         if (!isOnline()) return
         showOffline(false)
-        if (webView.url == null) webView.loadUrl(Constants.HOME_URL) else webView.reload()
+        if (webView.url == null) webView.loadUrl(Constants.startUrl()) else webView.reload()
     }
 
     // ---- BestieWebViewClient.Host ----
@@ -256,7 +256,7 @@ class MainActivity : AppCompatActivity(),
     override fun onRouteChanged(url: String) {
         // Same rules as navigation interception, for SPA route changes with no page load.
         when (UrlPolicy.decide(url, rules, prefs)) {
-            UrlPolicy.Decision.REDIRECT_HOME -> webView.loadUrl(Constants.HOME_URL)
+            UrlPolicy.Decision.REDIRECT_HOME -> webView.loadUrl(Constants.startUrl())
             else -> Unit
         }
     }

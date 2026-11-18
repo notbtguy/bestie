@@ -141,19 +141,30 @@
     }
   }
 
-  // Largest ancestor of el that still sits below the stories tray and the navigation:
-  // the whole suggestion unit, never the tray, never the whole page.
+  // Anything that belongs to the stories tray or the app chrome. A suggestion unit must never
+  // contain one of these: if it did, hiding it would hide stories (the v1.2.0 regression).
+  var PROTECT_SEL = 'a[href^="/stories/"], [role="menu"], [role="menuitem"], [role="banner"], ' +
+    '[role="navigation"], [aria-label*="tories"], [aria-label*="tory"], header, nav, main, [role="main"]';
+  var MAX_CLIMB = 10;
+
+  function isProtected(node) {
+    try {
+      if (node.matches && node.matches('main, [role="main"], header, nav, [role="banner"], [role="navigation"]')) return true;
+      return !!node.querySelector(PROTECT_SEL);
+    } catch (e) { return true; }
+  }
+
+  // Largest ancestor of el (bounded climb) that contains no protected element:
+  // the whole suggestion unit, never the tray, never the page. Under-hide when unsure.
   function unitRoot(el) {
     var node = el;
     var p = el.parentElement;
-    while (p && p !== document.body && p !== document.documentElement) {
-      if (p.tagName === 'MAIN' || p.getAttribute('role') === 'main') break;
-      try {
-        if (p.querySelector('a[href^="/stories/"]')) break; // would swallow the stories tray
-        if (p.querySelector('nav')) break; // would swallow navigation
-      } catch (e) { break; }
+    var depth = 0;
+    while (p && p !== document.body && p !== document.documentElement && depth < MAX_CLIMB) {
+      if (isProtected(p)) break;
       node = p;
       p = p.parentElement;
+      depth++;
     }
     return node;
   }
@@ -175,39 +186,10 @@
       for (var k = 0; k < lowered.length; k++) {
         if (t === lowered[k]) {
           var unit = unitRoot(el);
-          if (unit && unit !== el && !(hiddenEls && hiddenEls.has(unit))) { markHidden(unit); n++; }
+          if (unit && unit !== el && !isProtected(unit) && !(hiddenEls && hiddenEls.has(unit))) { markHidden(unit); n++; }
           break;
         }
       }
-    }
-    return n;
-  }
-
-  // Catch-all for home clutter that is neither an article nor a known suggestion row
-  // (ads built as divs, "load more" spinners): hide everything after the stories tray.
-  function sweepAfterStories() {
-    var link;
-    try { link = document.querySelector('a[href^="/stories/"]'); } catch (e) { return 0; }
-    if (!link) return 0;
-    var t = link;
-    var p = t.parentElement;
-    while (p && p !== document.body && p.tagName !== 'MAIN' && p.getAttribute('role') !== 'main') {
-      try {
-        if (p.querySelector('article')) break; // p holds both the tray and feed items: t is the tray block
-      } catch (e) { break; }
-      t = p;
-      p = p.parentElement;
-    }
-    if (!p || p === document.body) return 0;
-    var n = 0;
-    var sib = t.nextElementSibling;
-    while (sib) {
-      var skip = sib.tagName === 'NAV' || sib.getAttribute('role') === 'navigation';
-      if (!skip) {
-        try { skip = !!sib.querySelector('a[href^="/stories/"]'); } catch (e) {}
-      }
-      if (!skip && !(hiddenEls && hiddenEls.has(sib))) { markHidden(sib); n++; }
-      sib = sib.nextElementSibling;
     }
     return n;
   }
@@ -236,7 +218,6 @@
       if (now - lastSugAt >= SUG_THROTTLE_MS) {
         lastSugAt = now;
         matched['[home suggestion rows hidden]'] = hideSuggestionUnits();
-        matched['[home extras after stories hidden]'] = sweepAfterStories();
       }
     } else if (de.classList.contains('bestie-home')) {
       de.classList.remove('bestie-home');

@@ -40,6 +40,14 @@ class BestieWebViewClient(private val host: Host) : WebViewClient() {
     }
 
     override fun onPageFinished(view: WebView, url: String?) {
+        // Logged-out visit to the home route shows a web interstitial: jump to the login form.
+        try {
+            val u = android.net.Uri.parse(url ?: "")
+            if (UrlPolicy.isInstagramHost(u.host) && (u.path ?: "/").trim('/').isEmpty() && !Constants.hasSession()) {
+                view.loadUrl(Constants.LOGIN_URL)
+                return
+            }
+        } catch (e: Exception) {}
         host.fallbackScript()?.let { view.evaluateJavascript(it, null) }
         host.onPageFinishedUi(url)
     }
