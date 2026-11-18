@@ -8,10 +8,6 @@ class PrefsStore(context: Context) {
     private val sp: SharedPreferences =
         context.applicationContext.getSharedPreferences("bestie_prefs", Context.MODE_PRIVATE)
 
-    var profileUsername: String
-        get() = sp.getString("profile_username", "") ?: ""
-        set(v) = sp.edit().putString("profile_username", v).apply()
-
     var blockReels: Boolean
         get() = sp.getBoolean("block_reels", true)
         set(v) = sp.edit().putBoolean("block_reels", v).apply()

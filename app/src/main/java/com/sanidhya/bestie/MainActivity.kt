@@ -151,7 +151,7 @@ class MainActivity : AppCompatActivity(),
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(webView, true)
 
-        webView.addJavascriptInterface(BestieBridge(this), "BestieBridge")
+        webView.addJavascriptInterface(BestieBridge(this, applicationContext), "BestieBridge")
         webView.webViewClient = BestieWebViewClient(this)
         webView.webChromeClient = BestieChromeClient(this)
     }

@@ -12,6 +12,8 @@
   var timer = null;
   var footer = null;
   var lastThemePath = '';
+  var profileResolveTimer = null;
+  var profileResolveAttempts = 0;
   var ICONS = {
     Messages: '<path d="M21 11.5a8.3 8.3 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.3 8.3 0 0 1-3.8-.9L3 21l1.9-5.7a8.3 8.3 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.3 8.3 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5Z"/>',
     Activity: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z"/>',
@@ -33,7 +35,7 @@
           else if(!B.openProfile()) {
             var status=document.getElementById('bestie-status');
             if(!status){status=document.createElement('div');status.id='bestie-status';status.setAttribute('role','status');footer.appendChild(status);}
-            status.textContent='Set your Instagram username in Bestie Settings, then tap Profile again.';
+            status.textContent='Opening the signed-in account profile...';
             setTimeout(function(){if(status.isConnected)status.remove();},2500);
           }
         });
@@ -206,7 +208,11 @@
   }
   function navOnly() {
     var a=ownProfileLink();
-    if (a) profilePath=a.getAttribute('href');
+    if (a) {
+      profilePath=a.getAttribute('href');
+      rememberProfile(profilePath.split('/')[1]);
+    }
+    resolveAccountEdit();
     if (!style || !style.isConnected) {
       style=document.createElement('style');style.id='bestie-shell-style';
       // The icon footer lives in the same page and inherits its theme.
@@ -249,13 +255,32 @@
     if (timer || !document || document.hidden) return;
     timer=setTimeout(function(){timer=null;navOnly();},350);
   }
+  function rememberProfile(username){
+    if(!/^[A-Za-z0-9_.]{1,30}$/.test(username || ''))return;
+    try{if(window.BestieBridge && window.BestieBridge.rememberProfile)window.BestieBridge.rememberProfile(username);}catch(e){}
+  }
+  function resolveAccountEdit(){
+    if(location.pathname.replace(/\/$/,'')!=='/accounts/edit' || new URLSearchParams(location.search).get('bestie_profile')!=='1')return;
+    var field=document.querySelector('input[name="username"],input[aria-label="Username"]');
+    if(!field || !field.value){
+      if(!profileResolveTimer && profileResolveAttempts++<20)profileResolveTimer=setTimeout(function(){profileResolveTimer=null;resolveAccountEdit();},300);
+      return;
+    }
+    var username=(field.value || '').trim();
+    if(!/^[A-Za-z0-9_.]{1,30}$/.test(username))return;
+    rememberProfile(username);
+    location.replace('/'+username+'/');
+  }
   B.openProfile=function() {
-    var configured=window.__BESTIE_PROFILE_USERNAME || '';
-    if(/^[A-Za-z0-9_.]{1,30}$/.test(configured)) {location.assign('/'+configured+'/');return true;}
     var a=ownProfileLink();
-    if (a) { a.click(); return true; }
-    if (profilePath) { location.assign(profilePath); return true; }
-    return false;
+    if(a){rememberProfile((a.getAttribute('href') || '').split('/')[1]);a.click();return true;}
+    var cached='';
+    try{if(window.BestieBridge && window.BestieBridge.profileUsername)cached=window.BestieBridge.profileUsername();}catch(e){}
+    if(/^[A-Za-z0-9_.]{1,30}$/.test(cached)){location.assign('/'+cached+'/');return true;}
+    // Instagram itself supplies the signed-in account username here, including email/phone logins.
+    // Do not use a typed login ID as a username or assume an account from a chat avatar.
+    location.assign('/accounts/edit/?bestie_profile=1');
+    return true;
   };
   B.openActivity=function() {
     var markers=document.querySelectorAll('[aria-label="Notifications"], [aria-label="Activity"]');

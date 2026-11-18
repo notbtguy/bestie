@@ -27,15 +27,6 @@ class SettingsActivity : AppCompatActivity() {
             R.id.switchHideStories, R.id.switchDebug, R.id.reloadRules).forEach {
             findViewById<View>(it).visibility = View.GONE
         }
-        val username = findViewById<android.widget.EditText>(R.id.profileUsername)
-        username.setText(prefs.profileUsername)
-        findViewById<Button>(R.id.saveProfileUsername).setOnClickListener {
-            val value = username.text.toString().trim().removePrefix("@")
-            if (Regex("^[A-Za-z0-9_.]{1,30}$").matches(value)) {
-                prefs.profileUsername = value
-                Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show()
-            } else username.error = "Enter your Instagram username, without a link"
-        }
         refreshDebugInfo()
 
         val version = packageManager.getPackageInfo(packageName, 0).versionName ?: "1.0"
