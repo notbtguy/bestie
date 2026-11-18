@@ -1,0 +1,24 @@
+<resources>
+    <string name="app_name">Bestie</string>
+    <string name="splash_footer">A Sanidhya Production</string>
+    <string name="splash_link">notbtguy.vercel.app</string>
+    <string name="nav_home">Home</string>
+    <string name="nav_messages">Messages</string>
+    <string name="nav_profile">Profile</string>
+    <string name="nav_settings">Settings</string>
+    <string name="offline_title">You are offline</string>
+    <string name="offline_body">Check your connection and try again.</string>
+    <string name="retry">Retry</string>
+    <string name="settings_title">Settings</string>
+    <string name="setting_block_reels">Block Reels feed</string>
+    <string name="setting_disable_swipe">Disable swipe-to-next</string>
+    <string name="setting_hide_stories">Hide Stories</string>
+    <string name="setting_debug">Debug panel</string>
+    <string name="reload_rules">Reload rules</string>
+    <string name="rules_reloading">Reloading rules...</string>
+    <string name="rules_reloaded">Rules reloaded</string>
+    <string name="rules_reload_failed">Could not fetch remote rules. Using cached or built-in rules.</string>
+    <string name="made_by">Made by Sanidhya</string>
+    <string name="made_by_link">notbtguy.vercel.app</string>
+    <string name="version_label">Bestie version %1$s</string>
+</resources>

@@ -1,0 +1,19 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Main app theme: follows the system light/dark setting. -->
+    <style name="Theme.Bestie" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/bestie_purple</item>
+        <item name="colorPrimaryDark">@color/bestie_purple_dark</item>
+        <item name="colorSecondary">@color/bestie_purple</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/bar_bg</item>
+        <item name="android:navigationBarColor">@color/bar_bg</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">true</item>
+    </style>
+
+    <!-- Theme used while the system splash screen shows. -->
+    <style name="Theme.Bestie.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_logo</item>
+        <item name="postSplashScreenTheme">@style/Theme.Bestie</item>
+    </style>
+</resources>

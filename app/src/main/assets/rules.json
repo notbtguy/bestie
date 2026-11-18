@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "hideSelectors": [
+    "a[href=\"/reels/\"]",
+    "a[href=\"/reels\"]"
+  ],
+  "blockedExactPaths": ["/reels/", "/reels"],
+  "allowedPathPatterns": ["^/reel/[^/]+/?$", "^/reels/[^/]+/?$"],
+  "script": ""
+}

@@ -1,0 +1,10 @@
+<resources>
+    <color name="bestie_purple">#7C3AED</color>
+    <color name="bestie_purple_dark">#5B21B6</color>
+    <color name="bg">#FFFFFF</color>
+    <color name="text_primary">#111111</color>
+    <color name="text_secondary">#666666</color>
+    <color name="bar_bg">#F7F7F7</color>
+    <color name="icon_tint">#222222</color>
+    <color name="splash_bg">#FFFFFF</color>
+</resources>
