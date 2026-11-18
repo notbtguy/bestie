@@ -12,6 +12,7 @@
     <string name="settings_title">Settings</string>
     <string name="setting_block_reels">Block Reels feed</string>
     <string name="setting_disable_swipe">Disable swipe-to-next</string>
+    <string name="setting_stories_only_home">Home shows Stories only</string>
     <string name="setting_hide_stories">Hide Stories</string>
     <string name="setting_debug">Debug panel</string>
     <string name="reload_rules">Reload rules</string>

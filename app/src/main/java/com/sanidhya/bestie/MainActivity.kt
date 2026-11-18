@@ -34,7 +34,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import kotlinx.coroutines.launch
 
-/** Main screen: one full-screen Instagram WebView, a bottom bar, progress bar and offline screen. */
+/** Main screen: one full-screen Instagram WebView, a progress bar and an offline screen. */
 class MainActivity : AppCompatActivity(),
     BestieWebViewClient.Host, BestieChromeClient.Host, BestieBridge.Host {
 
@@ -105,14 +105,6 @@ class MainActivity : AppCompatActivity(),
         swipe.setOnRefreshListener { webView.reload() }
         swipe.setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 }
 
-        findViewById<View>(R.id.navHome).setOnClickListener { webView.loadUrl(Constants.HOME_URL) }
-        findViewById<View>(R.id.navMessages).setOnClickListener { webView.loadUrl(Constants.INBOX_URL) }
-        findViewById<View>(R.id.navProfile).setOnClickListener {
-            webView.evaluateJavascript("window.__bestie && window.__bestie.openProfile()", null)
-        }
-        findViewById<View>(R.id.navSettings).setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
         findViewById<View>(R.id.retryButton).setOnClickListener { retry() }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -158,6 +150,7 @@ class MainActivity : AppCompatActivity(),
         s.javaScriptCanOpenWindowsAutomatically = false
         s.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        s.offscreenPreRaster = true // pre-render offscreen content for smoother scrolling
 
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)

@@ -28,7 +28,7 @@ class RulesRepository(private val context: Context, private val prefs: PrefsStor
         }
         val text = context.assets.open("rules.json").bufferedReader().use { it.readText() }
         val rules = Rules.parse(text, fromRemote = false)
-            ?: Rules(1, listOf("a[href=\"/reels/\"]"), listOf("/reels/"), listOf("^/reels?/[^/]+/?$"), "", emptyList(), false)
+            ?: Rules(1, listOf("a[href=\"/reels/\"]"), listOf("/reels/"), listOf("^/reels?/[^/]+/?$"), "", emptyList(), listOf("article"), false)
         prefs.rulesStatus = "built-in default v${rules.version}"
         return rules
     }

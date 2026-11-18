@@ -27,6 +27,7 @@ class SettingsActivity : AppCompatActivity() {
 
         bind(R.id.switchBlockReels, prefs.blockReels) { prefs.blockReels = it }
         bind(R.id.switchDisableSwipe, prefs.disableSwipe) { prefs.disableSwipe = it }
+        bind(R.id.switchStoriesOnlyHome, prefs.storiesOnlyHome) { prefs.storiesOnlyHome = it }
         bind(R.id.switchHideStories, prefs.hideStories) { prefs.hideStories = it }
         bind(R.id.switchDebug, prefs.debug) {
             prefs.debug = it

@@ -16,6 +16,11 @@ class PrefsStore(context: Context) {
         get() = sp.getBoolean("disable_swipe", true)
         set(v) = sp.edit().putBoolean("disable_swipe", v).apply()
 
+    /** Home route shows only the stories tray; feed posts are hidden. */
+    var storiesOnlyHome: Boolean
+        get() = sp.getBoolean("stories_only_home", true)
+        set(v) = sp.edit().putBoolean("stories_only_home", v).apply()
+
     var hideStories: Boolean
         get() = sp.getBoolean("hide_stories", false)
         set(v) = sp.edit().putBoolean("hide_stories", v).apply()

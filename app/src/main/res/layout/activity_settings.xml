@@ -37,6 +37,14 @@
             android:textColor="@color/text_primary" />
 
         <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchStoriesOnlyHome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="52dp"
+            android:text="@string/setting_stories_only_home"
+            android:textColor="@color/text_primary" />
+
+        <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/switchHideStories"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

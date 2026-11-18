@@ -17,6 +17,10 @@
   var overlay = null;
   var panel = null;
   var lastPath = '';
+  var lastHideSig = '';
+  var lastLockAt = 0;
+  var hiddenEls = (typeof WeakSet !== 'undefined') ? new WeakSet() : null;
+  var LOCK_THROTTLE_MS = 700;
 
   function bridge(name, arg) {
     try {
@@ -27,6 +31,10 @@
   function norm(p) {
     p = p || '/';
     return p.charAt(p.length - 1) === '/' ? p : p + '/';
+  }
+
+  function isHome(p) {
+    return p === '/' || p === '';
   }
 
   function isAllowedPath(p) {
@@ -72,6 +80,14 @@
       // Hide the whole list item that wraps the Reels link, when the browser supports :has().
       css += 'li:has(> a[href="/reels/"]), div[role="listitem"]:has(> a[href="/reels/"]){display:none !important;}\n';
     }
+    if (cfg.storiesOnlyHome) {
+      // Home feed posts (regular + suggested) live in <article>; the stories tray does not.
+      // Scoped to the home route by the bestie-home class, toggled in apply().
+      var hf = cfg.homeFeedSelectors || ['article'];
+      for (var h = 0; h < hf.length; h++) {
+        css += 'html.bestie-home ' + hf[h] + '{display:none !important;}\n';
+      }
+    }
     styleEl.textContent = css;
   }
 
@@ -79,16 +95,40 @@
   function hideParents() {
     matched = {};
     var sels = allSelectors();
-    for (var i = 0; i < sels.length; i++) {
-      var found;
+    var sig = [];
+    var found, i, j;
+    for (i = 0; i < sels.length; i++) {
       try { found = document.querySelectorAll(sels[i]); } catch (e) { matched[sels[i]] = 'invalid'; continue; }
       matched[sels[i]] = found.length;
-      for (var j = 0; j < found.length; j++) {
+      sig.push(found.length);
+    }
+    // Same page state as last run: skip the style writes (they force style recalc).
+    var sigStr = sig.join(',');
+    if (sigStr === lastHideSig) return;
+    lastHideSig = sigStr;
+    for (i = 0; i < sels.length; i++) {
+      try { found = document.querySelectorAll(sels[i]); } catch (e) { continue; }
+      for (j = 0; j < found.length; j++) {
         var el = found[j];
+        if (hiddenEls && hiddenEls.has(el)) continue;
         el.style.setProperty('display', 'none', 'important');
         var parent = el.closest && el.closest('li, [role="listitem"]');
         if (parent && parent !== document.body) parent.style.setProperty('display', 'none', 'important');
+        if (hiddenEls) { hiddenEls.add(el); if (parent) hiddenEls.add(parent); }
       }
+    }
+  }
+
+  // Stories-only home: hide feed posts on the home route, keep the stories tray.
+  function applyHome() {
+    var on = !!cfg.storiesOnlyHome && isHome(location.pathname);
+    var de = document.documentElement;
+    if (on) {
+      if (!de.classList.contains('bestie-home')) de.classList.add('bestie-home');
+      var arts = document.querySelectorAll('article');
+      matched['[home feed posts hidden]'] = arts.length;
+    } else if (de.classList.contains('bestie-home')) {
+      de.classList.remove('bestie-home');
     }
   }
 
@@ -117,6 +157,10 @@
   }
 
   function lockSingleReel() {
+    // This walks big parts of the DOM; throttle so it cannot run on every mutation batch.
+    var now = Date.now();
+    if (now - lastLockAt < LOCK_THROTTLE_MS) return;
+    lastLockAt = now;
     var scrollers = findScrollers();
     matched['[scroll containers locked]'] = scrollers.length;
     for (var i = 0; i < scrollers.length; i++) {
@@ -209,7 +253,8 @@
       document.body.appendChild(panel);
     }
     var lines = ['Bestie debug | rules: ' + (cfg.rulesStatus || '?') + ' | v' + cfg.version,
-      'path: ' + location.pathname + ' | singleReel: ' + isSingleReel(location.pathname) +
+      'path: ' + location.pathname + ' | home: ' + isHome(location.pathname) +
+      ' | singleReel: ' + isSingleReel(location.pathname) +
       ' | blocked: ' + isBlockedPath(location.pathname)];
     for (var k in matched) lines.push(k + ' => ' + matched[k]);
     panel.textContent = lines.join('\n');
@@ -218,7 +263,9 @@
 
   function apply() {
     applyCss();
-    if (cfg.blockReels || cfg.hideStories) hideParents(); else matched = {};
+    matched = {};
+    if (cfg.blockReels || cfg.hideStories) hideParents();
+    applyHome();
     var p = location.pathname;
     if (isBlockedPath(p)) {
       location.replace('/');
@@ -229,6 +276,7 @@
   }
 
   function scheduleApply() {
+    if (document.hidden) return; // no DOM work while the page is in the background
     if (timer) clearTimeout(timer);
     timer = setTimeout(function () { timer = null; apply(); }, 100); // debounce 100 ms
   }
@@ -237,6 +285,7 @@
     var p = location.pathname;
     if (p !== lastPath) {
       lastPath = p;
+      lastHideSig = '';
       hideEndCard();
       bridge('onRouteChange', location.href);
       if (isBlockedPath(p)) { location.replace('/'); return; }
@@ -254,16 +303,25 @@
     };
   });
   window.addEventListener('popstate', onRoute);
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) scheduleApply();
+  });
 
   function startObserver() {
-    var mo = new MutationObserver(scheduleApply);
+    var mo = new MutationObserver(function (mutations) {
+      // Most Instagram mutations are attribute-free DOM churn; skip runs while hidden.
+      if (document.hidden) return;
+      for (var i = 0; i < mutations.length; i++) {
+        if (mutations[i].addedNodes.length > 0) { scheduleApply(); return; }
+      }
+    });
     mo.observe(document.documentElement, { childList: true, subtree: true });
     onRoute();
   }
   if (document.documentElement) startObserver();
   else document.addEventListener('DOMContentLoaded', startObserver);
 
-  // Called by the bottom bar "Profile" button.
+  // Kept for compatibility: used to be wired to the removed bottom bar "Profile" button.
   B.openProfile = function () {
     var imgs = document.querySelectorAll('a[href^="/"] img[alt*="profile picture"], a[href^="/"] img[alt*="rofile"]');
     for (var i = imgs.length - 1; i >= 0; i--) {
@@ -278,11 +336,8 @@
   B.update = function (newCfg) {
     cfg = newCfg || cfg;
     window.__BESTIE_CONFIG = cfg;
-    // Undo hiding done by earlier config, then re-apply.
-    var hidden = document.querySelectorAll('[style*="display: none"]');
-    for (var i = 0; i < hidden.length; i++) {
-      if (hidden[i].closest('video') === null && hidden[i].tagName !== 'SCRIPT') { /* keep Instagram's own hidden nodes */ }
-    }
+    lastHideSig = '';
+    if (hiddenEls) hiddenEls = new WeakSet();
     scheduleApply();
   };
 })();

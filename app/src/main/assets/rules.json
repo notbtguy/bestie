@@ -1,10 +1,11 @@
 {
-  "version": 1,
+  "version": 2,
   "hideSelectors": [
     "a[href=\"/reels/\"]",
     "a[href=\"/reels\"]"
   ],
   "blockedExactPaths": ["/reels/", "/reels"],
   "allowedPathPatterns": ["^/reel/[^/]+/?$", "^/reels/[^/]+/?$"],
+  "homeFeedSelectors": ["article"],
   "script": ""
 }

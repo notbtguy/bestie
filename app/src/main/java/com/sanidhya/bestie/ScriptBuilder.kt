@@ -17,11 +17,13 @@ object ScriptBuilder {
         cfg.put("version", rules.version)
         cfg.put("hideSelectors", JSONArray(rules.hideSelectors))
         cfg.put("storySelectors", JSONArray(rules.storySelectors))
+        cfg.put("homeFeedSelectors", JSONArray(rules.homeFeedSelectors))
         cfg.put("blockedExactPaths", JSONArray(rules.blockedExactPaths))
         cfg.put("allowedPathPatterns", JSONArray(rules.allowedPathPatterns))
         cfg.put("blockReels", prefs.blockReels)
         cfg.put("disableSwipe", prefs.disableSwipe)
         cfg.put("hideStories", prefs.hideStories)
+        cfg.put("storiesOnlyHome", prefs.storiesOnlyHome)
         cfg.put("debug", prefs.debug)
         cfg.put("rulesStatus", prefs.rulesStatus)
 
