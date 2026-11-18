@@ -245,20 +245,16 @@
     } catch (e) { return true; }
   }
 
-  // Largest ancestor of el (bounded climb) that contains no protected element:
-  // the whole suggestion unit, never the tray, never the page. Under-hide when unsure.
+  // Fallback without a detected tray: only hide a small, explicit follow card.
+  // Never infer a large feed ancestor from a header; an unlabelled tray may share it.
   function unitRoot(el) {
-    var node = el;
-    var p = el.parentElement;
-    var depth = 0;
-    while (p && p !== document.body && p !== document.documentElement && depth < MAX_CLIMB) {
-      if (isProtected(p)) break;
-      node = p;
-      if (p.querySelector('button, a, [role="button"]')) break;
-      p = p.parentElement;
-      depth++;
-    }
-    return node;
+    var parent = el.parentElement;
+    if (!parent || isProtected(parent) || parent.children.length > 6) return el;
+    var controls = query(['button', 'a', '[role="button"]'], parent);
+    if (!controls.length || controls.some(function (c) {
+      return !/^(follow|see all)$/i.test((c.textContent || '').trim());
+    })) return el;
+    return parent;
   }
 
   // "Suggestions for you" / follow-suggestion rows: leaf spans whose text matches a known header.
@@ -278,7 +274,7 @@
       for (var k = 0; k < lowered.length; k++) {
         if (t === lowered[k]) {
           var unit = unitRoot(el);
-          if (unit && unit !== el && !isProtected(unit) && !(hiddenEls && hiddenEls.has(unit))) { scopeHide(unit, 'home-suggestions'); n++; }
+          if (unit && !isProtected(unit) && !(hiddenEls && hiddenEls.has(unit))) { scopeHide(unit, 'home-suggestions'); n++; }
           break;
         }
       }

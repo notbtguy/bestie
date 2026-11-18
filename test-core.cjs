@@ -67,6 +67,8 @@ const feed='<section id="feed"><article id="post">Post</article><article id="ad"
  // Stories hydrate into an element previously hidden as a feed post.
  d=await page('/','<main id="main"><article id="lateTray">Loading</article>'+feed+'</main>');w=d.window;
  w.document.querySelector('#lateTray').innerHTML=trays[0];await wait(180);ok(visible(w,'#tray'),'tray replacing hidden post is released');w.close();
+ // Unlabelled tray sharing an unrecognizable suggestion wrapper must survive.
+ d=await page('/','<main id="main"><div>'+trays[2]+'<div><span>Suggestions for you</span><div>No follow buttons</div></div></div></main>');w=d.window;ok(visible(w,'#tray'),'unlabelled tray never swallowed by suggestion climb');w.close();
  // Native login behavior: mirrors implementation; source checks keep mirror honest, not a device test.
  const constants=fs.readFileSync('app/src/main/java/com/sanidhya/bestie/Constants.kt','utf8'),main=fs.readFileSync('app/src/main/java/com/sanidhya/bestie/MainActivity.kt','utf8'),client=fs.readFileSync('app/src/main/java/com/sanidhya/bestie/BestieWebViewClient.kt','utf8');
  ok(constants.includes('/accounts/login/'),'native login URL present');ok(main.includes('Constants.startUrl()'),'native start checks session');ok(client.includes('!Constants.hasSession()'),'interstitial redirect checks native cookie');
