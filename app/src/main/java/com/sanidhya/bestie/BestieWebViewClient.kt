@@ -25,7 +25,7 @@ class BestieWebViewClient(private val host: Host) : WebViewClient() {
         return when (UrlPolicy.decide(url, host.currentRules(), host.prefs())) {
             UrlPolicy.Decision.ALLOW -> false
             UrlPolicy.Decision.REDIRECT_HOME -> {
-                view.loadUrl(Constants.HOME_URL)
+                view.loadUrl(Constants.startUrl())
                 true
             }
             UrlPolicy.Decision.EXTERNAL -> {
@@ -43,8 +43,8 @@ class BestieWebViewClient(private val host: Host) : WebViewClient() {
         // Logged-out visit to the home route shows a web interstitial: jump to the login form.
         try {
             val u = android.net.Uri.parse(url ?: "")
-            if (UrlPolicy.isInstagramHost(u.host) && (u.path ?: "/").trim('/').isEmpty() && !Constants.hasSession()) {
-                view.loadUrl(Constants.LOGIN_URL)
+            if (UrlPolicy.isInstagramHost(u.host) && (u.path ?: "/").trim('/').isEmpty()) {
+                view.loadUrl(Constants.startUrl())
                 return
             }
         } catch (e: Exception) {}

@@ -7,6 +7,7 @@ object Constants {
 
     const val HOME_URL = "https://www.instagram.com/"
     const val LOGIN_URL = "https://www.instagram.com/accounts/login/"
+    const val ACTIVITY_URL = "https://www.instagram.com/accounts/activity/"
     const val INBOX_URL = "https://www.instagram.com/direct/inbox/"
     const val AUTHOR_URL = "https://notbtguy.vercel.app"
 
@@ -22,5 +23,5 @@ object Constants {
     }
 
     /** Logged out: go straight to the login form, skipping the "Log in / Open app" interstitial. */
-    fun startUrl(): String = if (hasSession()) HOME_URL else LOGIN_URL
+    fun startUrl(): String = if (hasSession()) INBOX_URL else LOGIN_URL
 }

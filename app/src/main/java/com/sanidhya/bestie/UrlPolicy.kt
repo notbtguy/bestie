@@ -23,13 +23,9 @@ object UrlPolicy {
         if (scheme != "http" && scheme != "https") return Decision.EXTERNAL
         if (!isInstagramHost(uri.host)) return Decision.EXTERNAL
 
+        // Avoid entry to the endless surfaces by routing, not filtering their content.
         val path = normalize(uri.path ?: "/")
-        // Single reels are always allowed.
-        if (rules.allowedPathPatterns.any { Regex(it).containsMatchIn(path) }) return Decision.ALLOW
-        // The endless feed is blocked when the setting is on.
-        if (prefs.blockReels && rules.blockedExactPaths.any { normalize(it) == path }) {
-            return Decision.REDIRECT_HOME
-        }
+        if (path == "/" || path.startsWith("/explore/") || path == "/reels/") return Decision.REDIRECT_HOME
         return Decision.ALLOW
     }
 }

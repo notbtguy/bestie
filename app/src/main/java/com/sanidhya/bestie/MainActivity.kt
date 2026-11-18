@@ -20,6 +20,8 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.ProgressBar
+import android.widget.Toast
+import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -100,6 +102,17 @@ class MainActivity : AppCompatActivity(),
 
         configureWebView()
         installScript()
+        findViewById<View>(R.id.tabMessages).setOnClickListener { webView.loadUrl(Constants.INBOX_URL) }
+        findViewById<View>(R.id.tabActivity).setOnClickListener {
+            webView.evaluateJavascript("window.__bestie && window.__bestie.openActivity()") { found ->
+                if (found != "true") webView.loadUrl(Constants.ACTIVITY_URL)
+            }
+        }
+        findViewById<View>(R.id.tabProfile).setOnClickListener {
+            webView.evaluateJavascript("window.__bestie && window.__bestie.openProfile()") { found ->
+                if (found != "true") Toast.makeText(this, "Profile link is still loading. Try again in a moment.", Toast.LENGTH_SHORT).show()
+            }
+        }
 
         swipe.setColorSchemeResources(R.color.bestie_purple)
         swipe.setOnRefreshListener { webView.reload() }
@@ -125,13 +138,7 @@ class MainActivity : AppCompatActivity(),
             showOffline(true)
         }
 
-        // Refresh rules in the background; apply if we got a valid new copy.
-        lifecycleScope.launch {
-            repo.fetchRemote()?.let {
-                rules = it
-                applySettingsLive()
-            }
-        }
+        // No remote rule fetch and no content-hiding engine in the three-tab shell.
         started = true
     }
 
@@ -149,8 +156,7 @@ class MainActivity : AppCompatActivity(),
         s.mediaPlaybackRequiresUserGesture = false
         s.javaScriptCanOpenWindowsAutomatically = false
         s.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-        s.offscreenPreRaster = true // pre-render offscreen content for smoother scrolling
+        // Let WebView manage hardware rendering; avoid offscreen preraster overhead.
 
         val cm = CookieManager.getInstance()
         cm.setAcceptCookie(true)
