@@ -61,8 +61,8 @@
     if(!footer)return;
     var target=document.activeElement;
     var editing=target && target.matches('input,textarea,[contenteditable="true"]');
-    var shrunk=window.visualViewport && window.visualViewport.height<window.innerHeight-120;
-    footer.classList.toggle('bestie-keyboard',!!editing && !!shrunk);
+    // Android adjustResize can shrink both viewports equally. Focus is the reliable signal.
+    footer.classList.toggle('bestie-keyboard',!!editing);
   }
   function notify() {
     try { if (window.BestieBridge) window.BestieBridge.onRouteChange(location.href); } catch(e) {}
@@ -147,7 +147,7 @@
     if(ms.some(function(m){return m.target!==style && !(footer && footer.contains(m.target)) && m.addedNodes.length>0;})) schedule();
   }).observe(document.documentElement,{childList:true,subtree:true});notify();}
   document.addEventListener('focusin',keyboardState);
-  document.addEventListener('focusout',keyboardState);
+  document.addEventListener('focusout',function(){setTimeout(keyboardState,0);});
   if(window.visualViewport)window.visualViewport.addEventListener('resize',keyboardState);
   if(window.matchMedia)window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',matchTheme);
   if(document.documentElement)start();else document.addEventListener('DOMContentLoaded',start);
