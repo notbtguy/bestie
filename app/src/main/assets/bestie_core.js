@@ -64,6 +64,88 @@
     // Android adjustResize can shrink both viewports equally. Focus is the reliable signal.
     footer.classList.toggle('bestie-keyboard',!!editing);
   }
+/* Route-scoped shared-reel guard. Installed once; inert everywhere except /reel/<id>. */
+  var reelPath = '';
+  var keptVideo = null;
+  var reelHidden = [];
+  function isReel(p){return /^\/reels?\/[^/]+\/?$/.test(p);}
+  function clearReel(){
+    reelHidden.forEach(function(item){
+      if(item.display)item.el.style.setProperty('display',item.display,item.priority);
+      else item.el.style.removeProperty('display');
+      item.el.removeAttribute('data-bestie-next-reel');
+    });
+    reelHidden=[];keptVideo=null;reelPath='';
+    document.documentElement.classList.remove('bestie-single-reel');
+  }
+  function hideReelBranch(el){
+    if(!el || el===document.body || el===document.documentElement ||
+      el.id==='bestie-tabs' || el.contains(keptVideo) || el.closest('#bestie-tabs,[role="dialog"]'))return;
+    if(!el.hasAttribute('data-bestie-next-reel')){
+      reelHidden.push({el:el,display:el.style.getPropertyValue('display'),priority:el.style.getPropertyPriority('display')});
+      el.setAttribute('data-bestie-next-reel','1');
+    }
+    if(el.style.getPropertyValue('display')!=='none')el.style.setProperty('display','none','important');
+  }
+  function guardReel(){
+    var p=location.pathname;
+    if(!isReel(p)){if(reelPath)clearReel();return;}
+    if(reelPath && reelPath!==p)clearReel();
+    reelPath=p;
+    document.documentElement.classList.add('bestie-single-reel');
+    var videos=document.querySelectorAll('video');
+    if(!keptVideo || !keptVideo.isConnected){
+      keptVideo=null;
+      // Prefer a video explicitly associated with this shortcode, otherwise first in DOM.
+      var code=p.split('/')[2];
+      for(var i=0;i<videos.length;i++){
+        var card=videos[i].closest('article,[role="listitem"]');
+        if(card && card.querySelector('a[href*="/'+code+'/"]')){keptVideo=videos[i];break;}
+      }
+      keptVideo=keptVideo || videos[0] || null;
+    }
+    if(!keptVideo)return;
+    keptVideo.loop=false;
+    videos.forEach(function(video){
+      if(video===keptVideo)return;
+      var node=video;
+      while(node.parentElement && node.parentElement!==document.body &&
+        !node.parentElement.contains(keptVideo) && !node.parentElement.matches('main,[role="main"]'))node=node.parentElement;
+      hideReelBranch(node);
+      try{video.pause();}catch(e){}
+    });
+    // The real device shows a Suggested heading plus a continuation card below the kept reel.
+    document.querySelectorAll('main span,main h2,main h3,[role="main"] span,[role="main"] h2,[role="main"] h3').forEach(function(label){
+      if(label.children.length || !/^(suggested|suggested reels|more reels|more like this|recommended for you)$/i.test((label.textContent||'').trim()))return;
+      var node=label;
+      for(var n=0;n<6 && node.parentElement && node.parentElement!==document.body &&
+        !node.parentElement.contains(keptVideo) && !node.parentElement.matches('main,[role="main"],[role="dialog"]');n++)node=node.parentElement;
+      hideReelBranch(node);
+    });
+    document.querySelectorAll('main a[href], [role="main"] a[href]').forEach(function(a){
+      var path;try{path=new URL(a.href,location.href).pathname;}catch(e){return;}
+      if(isReel(path) && path.replace(/\/$/,'')!==p.replace(/\/$/,''))hideReelBranch(a);
+    });
+  }
+  function reelException(target){return target && target.closest && target.closest('#bestie-tabs,[role="dialog"],[role="listbox"],textarea,input,[contenteditable="true"],[aria-label*="Comments"],[aria-label*="comments"]');}
+  function stopReelScroll(e){
+    if(isReel(location.pathname) && !reelException(e.target)){if(e.cancelable)e.preventDefault();e.stopImmediatePropagation();}
+  }
+  document.addEventListener('touchmove',stopReelScroll,{capture:true,passive:false});
+  document.addEventListener('wheel',stopReelScroll,{capture:true,passive:false});
+  document.addEventListener('keydown',function(e){
+    if(/^(ArrowDown|ArrowUp|PageDown|PageUp|End|Home| )$/.test(e.key))stopReelScroll(e);
+  },true);
+  document.addEventListener('click',function(e){
+    if(!isReel(location.pathname))return;
+    var a=e.target.closest && e.target.closest('a[href]');if(!a)return;
+    var p;try{p=new URL(a.href,location.href).pathname;}catch(err){return;}
+    if(isReel(p) && p.replace(/\/$/,'')!==location.pathname.replace(/\/$/,'')){e.preventDefault();e.stopImmediatePropagation();}
+  },true);
+  document.addEventListener('play',function(e){
+    if(isReel(location.pathname) && keptVideo && e.target.tagName==='VIDEO' && e.target!==keptVideo){try{e.target.pause();}catch(err){}}
+  },true);
+
   function notify() {
     try { if (window.BestieBridge) window.BestieBridge.onRouteChange(location.href); } catch(e) {}
   }
@@ -88,7 +170,9 @@
       style=document.createElement('style');style.id='bestie-shell-style';
       // The icon footer lives in the same page and inherits its theme.
       // Hide global navigation, not inbox lists, profile tabs, comments or content.
-      style.textContent='nav:has(a[href="/"]),[role="navigation"]:has(a[href="/"]),'+
+      style.textContent='html.bestie-single-reel,html.bestie-single-reel body{overflow:hidden!important;overscroll-behavior:none!important}'+
+        'html.bestie-single-reel [data-bestie-next-reel]{display:none!important}'+
+        'nav:has(a[href="/"]),[role="navigation"]:has(a[href="/"]),'+
         'nav:has(a[href="/explore/"]),[role="navigation"]:has(a[href="/explore/"]),'+
         'a[href="/"],a[href="/explore/"],a[href="/explore"],a[href="/reels/"],a[href="/reels"]{display:none!important}'+
         'html.bestie-has-tabs{scroll-padding-bottom:calc(56px + env(safe-area-inset-bottom,0px))}'+
@@ -118,6 +202,7 @@
       if (nav.querySelector('a[href="/"],a[href="/explore/"],a[href="/reels/"]')) nav.style.setProperty('display','none','important');
     });
     renderFooter();
+    guardReel();
   }
   function schedule() {
     if (timer || !document || document.hidden) return;
@@ -141,7 +226,7 @@
     return false;
   };
   B.update=function() {}; // Old rules/settings no longer re-enable filtering.
-  ['pushState','replaceState'].forEach(function(name){var orig=history[name];history[name]=function(){var r=orig.apply(this,arguments);notify();schedule();return r;};});
+  ['pushState','replaceState'].forEach(function(name){var orig=history[name];history[name]=function(){var next=arguments[2];if(next && isReel(location.pathname)){try{var dest=new URL(next,location.href).pathname;if(isReel(dest)&&dest.replace(/\/$/,'')!==location.pathname.replace(/\/$/,''))return;}catch(e){}}var r=orig.apply(this,arguments);notify();schedule();return r;};});
   window.addEventListener('popstate',function(){notify();schedule();});
   function start(){navOnly();new MutationObserver(function(ms){
     if(ms.some(function(m){return m.target!==style && !(footer && footer.contains(m.target)) && m.addedNodes.length>0;})) schedule();

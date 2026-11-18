@@ -22,6 +22,13 @@ class BestieWebViewClient(private val host: Host) : WebViewClient() {
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url.toString()
+        // Do not let the single-reel viewer chain into another reel through a full navigation.
+        val current = android.net.Uri.parse(view.url ?: "")
+        val next = request.url
+        val reel = Regex("^/reels?/[^/]+/?$")
+        if (request.isForMainFrame && UrlPolicy.isInstagramHost(current.host) &&
+            UrlPolicy.isInstagramHost(next.host) && reel.matches(current.path ?: "") &&
+            reel.matches(next.path ?: "") && current.path?.trimEnd('/') != next.path?.trimEnd('/')) return true
         return when (UrlPolicy.decide(url, host.currentRules(), host.prefs())) {
             UrlPolicy.Decision.ALLOW -> false
             UrlPolicy.Decision.REDIRECT_HOME -> {
