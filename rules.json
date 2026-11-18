@@ -1,12 +1,20 @@
 {
-  "version": 3,
+  "version": 4,
   "hideSelectors": [
     "a[href=\"/reels/\"]",
     "a[href=\"/reels\"]"
   ],
-  "blockedExactPaths": ["/reels/", "/reels"],
-  "allowedPathPatterns": ["^/reel/[^/]+/?$", "^/reels/[^/]+/?$"],
-  "homeFeedSelectors": ["article"],
+  "blockedExactPaths": [
+    "/reels/",
+    "/reels"
+  ],
+  "allowedPathPatterns": [
+    "^/reel/[^/]+/?$",
+    "^/reels/[^/]+/?$"
+  ],
+  "homeFeedSelectors": [
+    "article"
+  ],
   "homeFeedTextHeaders": [
     "Suggestions for you",
     "Suggested for you",
@@ -15,5 +23,22 @@
     "Who to follow",
     "You might like"
   ],
-  "script": ""
+  "script": "",
+  "homeTraySelectors": [
+    "[aria-label=\"Stories\"]",
+    "[aria-label=\"Stories tray\"]",
+    "[role=\"menu\"][aria-label*=\"tories\"]",
+    "ul:has(a[href^=\"/stories/\"])",
+    "[role=\"list\"]:has(a[href^=\"/stories/\"])"
+  ],
+  "exploreFeedSelectors": [
+    "main [role=\"grid\"]",
+    "[role=\"main\"] [role=\"grid\"]",
+    "main a[href^=\"/p/\"]",
+    "main a[href^=\"/reel/\"]",
+    "main a[href^=\"/reels/\"]",
+    "[role=\"main\"] a[href^=\"/p/\"]",
+    "[role=\"main\"] a[href^=\"/reel/\"]",
+    "main video"
+  ]
 }

@@ -2,8 +2,8 @@ package com.sanidhya.bestie
 
 /** App-wide constants. Edit RULES_URL to point at your hosted rules.json. */
 object Constants {
-    /** Placeholder: replace with the URL where you host rules.json (must be HTTPS). */
-    const val RULES_URL = "https://your-site.vercel.app/rules.json"
+    /** Owner-controlled selector rules; cached locally for offline startup. */
+    const val RULES_URL = "https://raw.githubusercontent.com/notbtguy/bestie/main/rules.json"
 
     const val HOME_URL = "https://www.instagram.com/"
     const val LOGIN_URL = "https://www.instagram.com/accounts/login/"

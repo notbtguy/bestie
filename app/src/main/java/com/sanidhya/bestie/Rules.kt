@@ -23,7 +23,9 @@ data class Rules(
     /** Header texts of home suggestion/follow rows ("Suggestions for you" etc.), matched lowercase. */
     val homeFeedTextHeaders: List<String>,
     /** True only if these rules came from the configured HTTPS URL (fetched or cached from it). */
-    val fromRemote: Boolean
+    val fromRemote: Boolean,
+    val homeTraySelectors: List<String>? = null,
+    val exploreFeedSelectors: List<String>? = null
 ) {
     companion object {
         /** Instagram wraps every home feed post (and suggested post) in an <article>. */
@@ -48,7 +50,9 @@ data class Rules(
                 val homeHeaders = if (o.has("homeFeedTextHeaders")) strings(o.getJSONArray("homeFeedTextHeaders")) else DEFAULT_HOME_HEADERS
                 // Make sure every pattern compiles.
                 allowed.forEach { Regex(it) }
-                Rules(version, hide, blocked, allowed, script, stories, homeFeed, homeHeaders, fromRemote)
+                Rules(version, hide, blocked, allowed, script, stories, homeFeed, homeHeaders, fromRemote,
+                    if (o.has("homeTraySelectors")) strings(o.getJSONArray("homeTraySelectors")) else null,
+                    if (o.has("exploreFeedSelectors")) strings(o.getJSONArray("exploreFeedSelectors")) else null)
             } catch (e: Exception) {
                 null
             }

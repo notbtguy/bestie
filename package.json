@@ -1,0 +1,25 @@
+{
+  "name": "bestie",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test-core.cjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/notbtguy/bestie.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/notbtguy/bestie/issues"
+  },
+  "homepage": "https://github.com/notbtguy/bestie#readme",
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "playwright": "^1.56.1"
+  },
+  "private": true
+}

@@ -15,6 +15,11 @@ object ScriptBuilder {
     fun build(context: Context, rules: Rules, prefs: PrefsStore): String {
         val cfg = JSONObject()
         cfg.put("version", rules.version)
+        val info = context.packageManager.getPackageInfo(context.packageName, 0)
+        cfg.put("appVersion", info.versionName)
+        cfg.put("appVersionCode", androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(info))
+        rules.homeTraySelectors?.let { cfg.put("homeTraySelectors", JSONArray(it)) }
+        rules.exploreFeedSelectors?.let { cfg.put("exploreFeedSelectors", JSONArray(it)) }
         cfg.put("hideSelectors", JSONArray(rules.hideSelectors))
         cfg.put("storySelectors", JSONArray(rules.storySelectors))
         cfg.put("homeFeedSelectors", JSONArray(rules.homeFeedSelectors))

@@ -20,10 +20,107 @@
   var lastPath = '';
   var lastHideSig = '';
   var lastLockAt = 0;
-  var lastSugAt = 0;
   var hiddenEls = (typeof WeakSet !== 'undefined') ? new WeakSet() : null;
   var LOCK_THROTTLE_MS = 700;
-  var SUG_THROTTLE_MS = 700;
+  var scoped = [];
+  var scopeRoute = '';
+  var trayCount = 0;
+  var inlineTotal = 0;
+  var DEFAULT_TRAYS = ['[aria-label="Stories"]', '[aria-label="Stories tray"]',
+    '[role="menu"][aria-label*="tories"]', 'ul:has(a[href^="/stories/"])',
+    '[role="list"]:has(a[href^="/stories/"])'];
+  var DEFAULT_EXPLORE = ['main [role="grid"]', '[role="main"] [role="grid"]',
+    'main a[href^="/p/"]', 'main a[href^="/reel/"]', 'main a[href^="/reels/"]',
+    '[role="main"] a[href^="/p/"]', '[role="main"] a[href^="/reel/"]', 'main video'];
+  function query(sels, root) {
+    var result = [];
+    (sels || []).forEach(function (sel) {
+      try { (root || document).querySelectorAll(sel).forEach(function (el) {
+        if (result.indexOf(el) < 0) result.push(el);
+      }); } catch (e) {}
+    });
+    return result;
+  }
+  function restoreScoped() {
+    scoped.forEach(function (item) {
+      if (item.value) item.el.style.setProperty('display', item.value, item.priority);
+      else item.el.style.removeProperty('display');
+      item.el.removeAttribute('data-bestie-scoped');
+    });
+    scoped = [];
+  }
+  function scopeHide(el, layer) {
+    if (!el || el === document.body || el === document.documentElement) return;
+    if (!scoped.some(function (item) { return item.el === el; })) {
+      scoped.push({el: el, value: el.style.getPropertyValue('display'),
+        priority: el.style.getPropertyPriority('display')});
+      el.setAttribute('data-bestie-scoped', layer);
+      inlineTotal++;
+    }
+    if (!el.hasAttribute('data-bestie-scoped')) el.setAttribute('data-bestie-scoped', layer);
+    if (el.style.getPropertyValue('display') !== 'none' || el.style.getPropertyPriority('display') !== 'important')
+      el.style.setProperty('display', 'none', 'important');
+  }
+  function releaseProtected(anchors) {
+    scoped = scoped.filter(function (item) {
+      if (!intersects(item.el, anchors)) return true;
+      if (item.value) item.el.style.setProperty('display', item.value, item.priority);
+      else item.el.style.removeProperty('display');
+      item.el.removeAttribute('data-bestie-scoped');
+      return false;
+    });
+  }
+  function intersects(el, anchors) {
+    return anchors.some(function (a) { return el === a || el.contains(a) || a.contains(el); });
+  }
+  // Prune siblings only along proven keep-paths. Never move or clone the story UI.
+  function prune(main, anchors, layer) {
+    var keep = anchors.concat(query(['header','nav','[role="navigation"]','[role="banner"]',
+      '[role="dialog"]','[role="listbox"]'], main));
+    anchors.forEach(function (anchor) {
+      var node = anchor;
+      while (node && node !== main && main.contains(node)) {
+        var parent = node.parentElement;
+        if (!parent) break;
+        Array.prototype.forEach.call(parent.children, function (sibling) {
+          if (!intersects(sibling, keep) && !/^(SCRIPT|STYLE|LINK)$/.test(sibling.tagName))
+            scopeHide(sibling, layer);
+        });
+        node = parent;
+      }
+    });
+  }
+  function applyExplore() {
+    var on = /^\/explore(?:\/|$)/.test(location.pathname);
+    document.documentElement.classList.toggle('bestie-explore', on);
+    if (!on) return;
+    var search = query(['input[placeholder*="earch"]','input[aria-label*="earch"]',
+      'input[type="search"]', '[role="search"]', 'button[aria-label="Search"]',
+      '[role="button"][aria-label="Search"]', 'a[href="/explore/search/"]']);
+    query(['button', '[role="button"]']).forEach(function (el) {
+      if ((el.textContent || '').trim().toLowerCase() === 'search') search.push(el);
+    });
+    releaseProtected(search);
+    // While typing, preserve unknown result layouts. Hide media tiles, not profile results.
+    var searching = /\/explore\/search/.test(location.pathname) || search.some(function (el) {
+      return (el.value || '').trim().length > 0;
+    });
+    var mains = query(['main','[role="main"]']);
+    mains.forEach(function (main) {
+      var anchors = search.filter(function (el) { return main.contains(el); });
+      if (!searching) {
+        anchors = anchors.concat(query(['[role="listbox"]', '[role="dialog"]'], main));
+        if (anchors.length) prune(main, anchors, 'explore');
+        else if (!search.some(function (el) { return main.contains(el); })) scopeHide(main, 'explore');
+      }
+    });
+    var tiles = query(cfg.exploreFeedSelectors || DEFAULT_EXPLORE);
+    tiles.forEach(function (el) {
+      if (!intersects(el, search) && !el.closest('[role="listbox"], [role="dialog"]')) scopeHide(el, 'explore');
+    });
+    matched['[explore media matches]'] = tiles.length;
+    matched['[search active]'] = searching;
+  }
 
   function bridge(name, arg) {
     try {
@@ -80,6 +177,7 @@
   // attribute (lets the MutationObserver ignore churn inside hidden subtrees) and the WeakSet.
   function markHidden(el) {
     if (!el || el.nodeType !== 1) return;
+    if (el.style.getPropertyValue('display') !== 'none') inlineTotal++;
     el.style.setProperty('display', 'none', 'important');
     try { el.setAttribute('data-bestie-hidden', '1'); } catch (e) {}
     if (hiddenEls) hiddenEls.add(el);
@@ -94,14 +192,7 @@
       // Hide the whole list item that wraps the Reels link, when the browser supports :has().
       css += 'li:has(> a[href="/reels/"]), div[role="listitem"]:has(> a[href="/reels/"]){display:none !important;}\n';
     }
-    if (cfg.storiesOnlyHome) {
-      // Home feed posts (regular + suggested) live in <article>; the stories tray does not.
-      // Scoped to the home route by the bestie-home class, toggled in apply().
-      var hf = cfg.homeFeedSelectors || ['article'];
-      for (var h = 0; h < hf.length; h++) {
-        css += 'html.bestie-home ' + hf[h] + '{display:none !important;}\n';
-      }
-    }
+    css += '[data-bestie-hidden], [data-bestie-scoped]{display:none !important;}\n';
     // Rewriting the sheet forces a full-document style recalc - only write on change.
     if (css === lastCss && styleEl && styleEl.parentNode) return;
     lastCss = css;
@@ -125,15 +216,15 @@
       matched[sels[i]] = found.length;
       sig.push(found.length);
     }
-    // Same page state as last run: skip the style writes (they force style recalc).
+    // Do not assume an equal count means the same nodes after hydration.
     var sigStr = sig.join(',');
-    if (sigStr === lastHideSig) return;
+    // Equal counts do not mean equal nodes after React replaces a subtree.
     lastHideSig = sigStr;
     for (i = 0; i < sels.length; i++) {
       try { found = document.querySelectorAll(sels[i]); } catch (e) { continue; }
       for (j = 0; j < found.length; j++) {
         var el = found[j];
-        if (hiddenEls && hiddenEls.has(el)) continue;
+        if (hiddenEls && hiddenEls.has(el) && el.style.getPropertyValue('display') === 'none') continue;
         markHidden(el);
         var parent = el.closest && el.closest('li, [role="listitem"]');
         if (parent && parent !== document.body && !(hiddenEls && hiddenEls.has(parent))) markHidden(parent);
@@ -149,7 +240,7 @@
 
   function isProtected(node) {
     try {
-      if (node.matches && node.matches('main, [role="main"], header, nav, [role="banner"], [role="navigation"]')) return true;
+      if (node.matches && node.matches('[role="menu"], [role="menuitem"], [aria-label*="tories"], main, [role="main"], header, nav, [role="banner"], [role="navigation"]')) return true;
       return !!node.querySelector(PROTECT_SEL);
     } catch (e) { return true; }
   }
@@ -163,6 +254,7 @@
     while (p && p !== document.body && p !== document.documentElement && depth < MAX_CLIMB) {
       if (isProtected(p)) break;
       node = p;
+      if (p.querySelector('button, a, [role="button"]')) break;
       p = p.parentElement;
       depth++;
     }
@@ -186,7 +278,7 @@
       for (var k = 0; k < lowered.length; k++) {
         if (t === lowered[k]) {
           var unit = unitRoot(el);
-          if (unit && unit !== el && !isProtected(unit) && !(hiddenEls && hiddenEls.has(unit))) { markHidden(unit); n++; }
+          if (unit && unit !== el && !isProtected(unit) && !(hiddenEls && hiddenEls.has(unit))) { scopeHide(unit, 'home-suggestions'); n++; }
           break;
         }
       }
@@ -202,23 +294,26 @@
     var de = document.documentElement;
     if (on) {
       if (!de.classList.contains('bestie-home')) de.classList.add('bestie-home');
+      var trays = query(cfg.homeTraySelectors || DEFAULT_TRAYS);
+      trayCount = trays.length;
+      releaseProtected(trays);
+      query(['main', '[role="main"]']).forEach(function (main) {
+        var anchors = trays.filter(function (el) { return main.contains(el); });
+        if (anchors.length) prune(main, anchors, 'home-structure');
+      });
       var posts = 0;
       var hf = cfg.homeFeedSelectors || ['article'];
       for (var i = 0; i < hf.length; i++) {
         var found;
         try { found = document.querySelectorAll(hf[i]); } catch (e) { continue; }
         for (var j = 0; j < found.length; j++) {
-          if (hiddenEls && hiddenEls.has(found[j])) continue;
-          markHidden(found[j]);
+          if (isProtected(found[j]) || intersects(found[j], trays)) continue;
+          scopeHide(found[j], 'home-post');
           posts++;
         }
       }
       matched['[home feed posts hidden]'] = posts;
-      var now = Date.now();
-      if (now - lastSugAt >= SUG_THROTTLE_MS) {
-        lastSugAt = now;
-        matched['[home suggestion rows hidden]'] = hideSuggestionUnits();
-      }
+      matched['[home suggestion rows hidden]'] = hideSuggestionUnits();
     } else if (de.classList.contains('bestie-home')) {
       de.classList.remove('bestie-home');
     }
@@ -277,7 +372,7 @@
       while (node.parentElement && !node.parentElement.contains(keep) && node.parentElement !== document.body) {
         node = node.parentElement;
       }
-      markHidden(node);
+      scopeHide(node, 'next-reel');
       try { video.pause(); } catch (e) {}
       removed++;
     }
@@ -344,20 +439,34 @@
         'background:rgba(0,0,0,0.82);color:#9f9;font:10px monospace;padding:6px;pointer-events:none;white-space:pre-wrap;';
       document.body.appendChild(panel);
     }
-    var lines = ['Bestie debug | rules: ' + (cfg.rulesStatus || '?') + ' | v' + cfg.version,
+    var lines = ['Bestie ' + (cfg.appVersion || '?') + ' (' + (cfg.appVersionCode || '?') + ') | rules: ' + (cfg.rulesStatus || '?') + ' | v' + cfg.version,
       'path: ' + location.pathname + ' | home: ' + isHome(location.pathname) +
       ' | singleReel: ' + isSingleReel(location.pathname) +
       ' | blocked: ' + isBlockedPath(location.pathname)];
+    lines.push('CSS: ' + (!!(styleEl && styleEl.isConnected && styleEl.sheet)) +
+      ' | inline writes total: ' + inlineTotal);
+    lines.push('hidden now: ' + document.querySelectorAll('[data-bestie-hidden], [data-bestie-scoped]').length +
+      ' | scoped: ' + scoped.length + ' | trays: ' + trayCount);
+    lines.push('storiesOnlyHome: ' + !!cfg.storiesOnlyHome + ' | hideStories: ' + !!cfg.hideStories);
+    var layers = {};
+    scoped.forEach(function (item) { var key = item.el.getAttribute('data-bestie-scoped'); layers[key] = (layers[key] || 0) + 1; });
+    lines.push('layers: ' + JSON.stringify(layers));
     for (var k in matched) lines.push(k + ' => ' + matched[k]);
     panel.textContent = lines.join('\n');
     bridge('onDebug', JSON.stringify(matched));
   }
 
   function apply() {
+    if (scopeRoute !== location.pathname) {
+      restoreScoped();
+      scopeRoute = location.pathname;
+      trayCount = 0;
+    }
     applyCss();
     matched = {};
     if (cfg.blockReels || cfg.hideStories) hideParents();
     applyHome();
+    applyExplore();
     var p = location.pathname;
     if (isBlockedPath(p)) {
       location.replace('/');
@@ -368,7 +477,7 @@
   }
 
   function scheduleApply() {
-    if (document.hidden) return; // no DOM work while the page is in the background
+    if (!document || document.hidden) return; // no DOM work while the page is in the background
     if (timer) clearTimeout(timer);
     timer = setTimeout(function () { timer = null; apply(); }, 100); // debounce 100 ms
   }
@@ -402,14 +511,19 @@
   function startObserver() {
     var mo = new MutationObserver(function (mutations) {
       // Most Instagram mutations are attribute-free DOM churn; skip runs while hidden.
-      if (document.hidden) return;
+      if (!document || document.hidden) return;
       for (var i = 0; i < mutations.length; i++) {
         var m = mutations[i];
+        if (styleEl && !styleEl.isConnected) { scheduleApply(); return; }
         if (m.addedNodes.length === 0) continue;
         // Churn inside a subtree we already hid (the hidden feed keeps rendering in the
         // background) must not re-trigger passes - otherwise apply() runs forever on home.
         var t = m.target;
-        if (t && t.nodeType === 1 && t.closest && t.closest('[data-bestie-hidden]')) continue;
+        if (t === panel || t === styleEl) continue;
+        if (t && t.nodeType === 1 && t.closest && t.closest('[data-bestie-hidden], [data-bestie-scoped]')) {
+          // A loading feed wrapper may hydrate into a tray. Recheck that case, not feed churn.
+          if (!query(cfg.homeTraySelectors || DEFAULT_TRAYS, t).length) continue;
+        }
         scheduleApply();
         return;
       }
@@ -424,6 +538,19 @@
       }
     });
     rootMo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    // Reassert only our own inline markers if hydration strips style/marker attributes.
+    var scopedMo = new MutationObserver(function (mutations) {
+      if (mutations.some(function (m) {
+        return (m.target.hasAttribute('data-bestie-scoped') || (hiddenEls && hiddenEls.has(m.target)) || scoped.some(function (item) { return item.el === m.target; })) &&
+          m.target.style.getPropertyValue('display') !== 'none';
+      })) scheduleApply();
+    });
+    scopedMo.observe(document.documentElement, {attributes:true, subtree:true, attributeFilter:['style']});
+    document.addEventListener('input', function (e) {
+      if (/^\/explore(?:\/|$)/.test(location.pathname) && e.target.tagName === 'INPUT') {
+        restoreScoped(); scheduleApply();
+      }
+    }, true);
     onRoute();
   }
   if (document.documentElement) startObserver();
@@ -442,6 +569,7 @@
   };
 
   B.update = function (newCfg) {
+    restoreScoped();
     cfg = newCfg || cfg;
     window.__BESTIE_CONFIG = cfg;
     lastHideSig = '';
