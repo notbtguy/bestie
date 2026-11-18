@@ -9,11 +9,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack 1-bestie-src.zip into the repo
+      - name: Unpack bestie source zip into the repo
         run: |
-          if [ ! -f 1-bestie-src.zip ]; then echo "nothing to unpack"; exit 0; fi
-          unzip -o 1-bestie-src.zip
-          rm 1-bestie-src.zip
+          Z=$(ls *bestie-src.zip 2>/dev/null | head -1)
+          if [ -z "$Z" ]; then echo "nothing to unpack"; exit 0; fi
+          unzip -o "$Z"
+          rm -f ./*bestie-src.zip
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
