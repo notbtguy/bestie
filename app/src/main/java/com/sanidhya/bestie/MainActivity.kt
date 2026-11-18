@@ -53,6 +53,7 @@ class MainActivity : AppCompatActivity(),
     private var docStartSupported = false
     private var currentScript = ""
     private var started = false
+    private var reelGuardActive = false
 
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private var pendingChooserIntent: Intent? = null
@@ -229,6 +230,7 @@ class MainActivity : AppCompatActivity(),
     }
 
     override fun onPageStartedUi() {
+        reelGuardActive = false
         progress.visibility = View.VISIBLE
     }
 
@@ -254,6 +256,10 @@ class MainActivity : AppCompatActivity(),
             else -> Unit
         }
     }
+
+    override fun isReelGuardActive(): Boolean = reelGuardActive
+
+    override fun onReelGuardChanged(active: Boolean) { reelGuardActive = active }
 
     override fun onDebugInfo(json: String) {
         // The on-page debug panel already shows matches; nothing else to do natively.

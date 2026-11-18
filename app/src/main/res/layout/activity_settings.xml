@@ -20,6 +20,13 @@
             android:textSize="26sp"
             android:textStyle="bold" />
 
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="Your Instagram username (Profile tab)" android:textColor="@color/text_primary" />
+        <EditText android:id="@+id/profileUsername" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:hint="username" android:inputType="textNoSuggestions" android:singleLine="true" android:maxLength="30"
+            android:textColor="@color/text_primary" />
+        <Button android:id="@+id/saveProfileUsername" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="Save profile" />
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/switchBlockReels"
             android:layout_width="match_parent"

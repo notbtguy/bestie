@@ -9,6 +9,7 @@ class BestieBridge(private val host: Host) {
     interface Host {
         fun onRouteChanged(url: String)
         fun onDebugInfo(json: String)
+        fun onReelGuardChanged(active: Boolean)
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -17,6 +18,9 @@ class BestieBridge(private val host: Host) {
     fun onRouteChange(url: String) {
         main.post { host.onRouteChanged(url) }
     }
+
+    @JavascriptInterface
+    fun onReelGuard(active: Boolean) { main.post { host.onReelGuardChanged(active) } }
 
     @JavascriptInterface
     fun onDebug(json: String) {

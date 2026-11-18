@@ -16,6 +16,7 @@ class BestieWebViewClient(private val host: Host) : WebViewClient() {
         fun onPageStartedUi()
         fun onPageFinishedUi(url: String?)
         fun onLoadError()
+        fun isReelGuardActive(): Boolean
         /** Script to inject in onPageFinished when document-start injection is unavailable, else null. */
         fun fallbackScript(): String?
     }
@@ -26,6 +27,8 @@ class BestieWebViewClient(private val host: Host) : WebViewClient() {
         val current = android.net.Uri.parse(view.url ?: "")
         val next = request.url
         val reel = Regex("^/reels?/[^/]+/?$")
+        if (request.isForMainFrame && host.isReelGuardActive() && UrlPolicy.isInstagramHost(next.host) &&
+            reel.matches(next.path ?: "")) return true
         if (request.isForMainFrame && UrlPolicy.isInstagramHost(current.host) &&
             UrlPolicy.isInstagramHost(next.host) && reel.matches(current.path ?: "") &&
             reel.matches(next.path ?: "") && current.path?.trimEnd('/') != next.path?.trimEnd('/')) return true
