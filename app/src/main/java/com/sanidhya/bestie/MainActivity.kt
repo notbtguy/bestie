@@ -102,18 +102,6 @@ class MainActivity : AppCompatActivity(),
 
         configureWebView()
         installScript()
-        findViewById<View>(R.id.tabMessages).setOnClickListener { webView.loadUrl(Constants.INBOX_URL) }
-        findViewById<View>(R.id.tabActivity).setOnClickListener {
-            webView.evaluateJavascript("window.__bestie && window.__bestie.openActivity()") { found ->
-                if (found != "true") webView.loadUrl(Constants.ACTIVITY_URL)
-            }
-        }
-        findViewById<View>(R.id.tabProfile).setOnClickListener {
-            webView.evaluateJavascript("window.__bestie && window.__bestie.openProfile()") { found ->
-                if (found != "true") Toast.makeText(this, "Profile link is still loading. Try again in a moment.", Toast.LENGTH_SHORT).show()
-            }
-        }
-
         swipe.setColorSchemeResources(R.color.bestie_purple)
         swipe.setOnRefreshListener { webView.reload() }
         swipe.setOnChildScrollUpCallback { _, _ -> webView.scrollY > 0 }
