@@ -18,6 +18,7 @@ object ScriptBuilder {
         cfg.put("hideSelectors", JSONArray(rules.hideSelectors))
         cfg.put("storySelectors", JSONArray(rules.storySelectors))
         cfg.put("homeFeedSelectors", JSONArray(rules.homeFeedSelectors))
+        cfg.put("homeFeedTextHeaders", JSONArray(rules.homeFeedTextHeaders))
         cfg.put("blockedExactPaths", JSONArray(rules.blockedExactPaths))
         cfg.put("allowedPathPatterns", JSONArray(rules.allowedPathPatterns))
         cfg.put("blockReels", prefs.blockReels)

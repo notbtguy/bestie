@@ -13,14 +13,17 @@
   window.__bestie = B;
   var timer = null;
   var styleEl = null;
+  var lastCss = '';
   var matched = {};
   var overlay = null;
   var panel = null;
   var lastPath = '';
   var lastHideSig = '';
   var lastLockAt = 0;
+  var lastSugAt = 0;
   var hiddenEls = (typeof WeakSet !== 'undefined') ? new WeakSet() : null;
   var LOCK_THROTTLE_MS = 700;
+  var SUG_THROTTLE_MS = 700;
 
   function bridge(name, arg) {
     try {
@@ -66,13 +69,24 @@
   // Best-effort defaults; override with "storySelectors" in rules.json.
   var DEFAULT_STORY_SELECTORS = ['div[aria-label^="Stories"]', 'div[role="menu"][aria-label*="tories"]'];
 
+  // Suggestion rows on home are plain divs (not articles); we find them by their header text.
+  // Override with "homeFeedTextHeaders" in rules.json. Compared lowercase.
+  var DEFAULT_HOME_HEADERS = [
+    'suggestions for you', 'suggested for you', 'suggested posts',
+    'people you may know', 'who to follow', 'you might like'
+  ];
+
+  // Hide an element for good: inline style (survives class wipes and CSP), a marker
+  // attribute (lets the MutationObserver ignore churn inside hidden subtrees) and the WeakSet.
+  function markHidden(el) {
+    if (!el || el.nodeType !== 1) return;
+    el.style.setProperty('display', 'none', 'important');
+    try { el.setAttribute('data-bestie-hidden', '1'); } catch (e) {}
+    if (hiddenEls) hiddenEls.add(el);
+  }
+
   // ---- Layer 2: CSS (hides instantly, before JS finds anything) ----
   function applyCss() {
-    if (!styleEl) {
-      styleEl = document.createElement('style');
-      styleEl.id = 'bestie-style';
-      (document.head || document.documentElement).appendChild(styleEl);
-    }
     var sels = allSelectors();
     var css = '';
     for (var i = 0; i < sels.length; i++) css += sels[i] + '{display:none !important;}\n';
@@ -87,6 +101,15 @@
       for (var h = 0; h < hf.length; h++) {
         css += 'html.bestie-home ' + hf[h] + '{display:none !important;}\n';
       }
+    }
+    // Rewriting the sheet forces a full-document style recalc - only write on change.
+    if (css === lastCss && styleEl && styleEl.parentNode) return;
+    lastCss = css;
+    if (!styleEl || !styleEl.parentNode) {
+      // Recreate if Instagram's SPA removed our <style> from <head>.
+      styleEl = document.createElement('style');
+      styleEl.id = 'bestie-style';
+      (document.head || document.documentElement).appendChild(styleEl);
     }
     styleEl.textContent = css;
   }
@@ -111,22 +134,110 @@
       for (j = 0; j < found.length; j++) {
         var el = found[j];
         if (hiddenEls && hiddenEls.has(el)) continue;
-        el.style.setProperty('display', 'none', 'important');
+        markHidden(el);
         var parent = el.closest && el.closest('li, [role="listitem"]');
-        if (parent && parent !== document.body) parent.style.setProperty('display', 'none', 'important');
-        if (hiddenEls) { hiddenEls.add(el); if (parent) hiddenEls.add(parent); }
+        if (parent && parent !== document.body && !(hiddenEls && hiddenEls.has(parent))) markHidden(parent);
       }
     }
   }
 
-  // Stories-only home: hide feed posts on the home route, keep the stories tray.
+  // Largest ancestor of el that still sits below the stories tray and the navigation:
+  // the whole suggestion unit, never the tray, never the whole page.
+  function unitRoot(el) {
+    var node = el;
+    var p = el.parentElement;
+    while (p && p !== document.body && p !== document.documentElement) {
+      if (p.tagName === 'MAIN' || p.getAttribute('role') === 'main') break;
+      try {
+        if (p.querySelector('a[href^="/stories/"]')) break; // would swallow the stories tray
+        if (p.querySelector('nav')) break; // would swallow navigation
+      } catch (e) { break; }
+      node = p;
+      p = p.parentElement;
+    }
+    return node;
+  }
+
+  // "Suggestions for you" / follow-suggestion rows: leaf spans whose text matches a known header.
+  function hideSuggestionUnits() {
+    var headers = (cfg.homeFeedTextHeaders && cfg.homeFeedTextHeaders.length)
+      ? cfg.homeFeedTextHeaders : DEFAULT_HOME_HEADERS;
+    var lowered = [];
+    for (var h = 0; h < headers.length; h++) lowered.push(String(headers[h]).toLowerCase());
+    var spans;
+    try { spans = document.querySelectorAll('main span, [role="main"] span'); } catch (e) { return 0; }
+    var n = 0;
+    for (var i = 0; i < spans.length; i++) {
+      var el = spans[i];
+      if (el.children.length > 0) continue; // headers are leaf spans
+      var t = (el.textContent || '').replace(/\s+/g, ' ').replace(/^\s+|\s+$/g, '').toLowerCase();
+      if (!t || t.length > 40) continue;
+      for (var k = 0; k < lowered.length; k++) {
+        if (t === lowered[k]) {
+          var unit = unitRoot(el);
+          if (unit && unit !== el && !(hiddenEls && hiddenEls.has(unit))) { markHidden(unit); n++; }
+          break;
+        }
+      }
+    }
+    return n;
+  }
+
+  // Catch-all for home clutter that is neither an article nor a known suggestion row
+  // (ads built as divs, "load more" spinners): hide everything after the stories tray.
+  function sweepAfterStories() {
+    var link;
+    try { link = document.querySelector('a[href^="/stories/"]'); } catch (e) { return 0; }
+    if (!link) return 0;
+    var t = link;
+    var p = t.parentElement;
+    while (p && p !== document.body && p.tagName !== 'MAIN' && p.getAttribute('role') !== 'main') {
+      try {
+        if (p.querySelector('article')) break; // p holds both the tray and feed items: t is the tray block
+      } catch (e) { break; }
+      t = p;
+      p = p.parentElement;
+    }
+    if (!p || p === document.body) return 0;
+    var n = 0;
+    var sib = t.nextElementSibling;
+    while (sib) {
+      var skip = sib.tagName === 'NAV' || sib.getAttribute('role') === 'navigation';
+      if (!skip) {
+        try { skip = !!sib.querySelector('a[href^="/stories/"]'); } catch (e) {}
+      }
+      if (!skip && !(hiddenEls && hiddenEls.has(sib))) { markHidden(sib); n++; }
+      sib = sib.nextElementSibling;
+    }
+    return n;
+  }
+
+  // Stories-only home: hide feed posts, suggestion rows and ads on the home route,
+  // keep the stories tray. JS layer (inline styles) backs the CSS layer, which alone
+  // could be defeated when Instagram rewrites the <html> class during hydration.
   function applyHome() {
     var on = !!cfg.storiesOnlyHome && isHome(location.pathname);
     var de = document.documentElement;
     if (on) {
       if (!de.classList.contains('bestie-home')) de.classList.add('bestie-home');
-      var arts = document.querySelectorAll('article');
-      matched['[home feed posts hidden]'] = arts.length;
+      var posts = 0;
+      var hf = cfg.homeFeedSelectors || ['article'];
+      for (var i = 0; i < hf.length; i++) {
+        var found;
+        try { found = document.querySelectorAll(hf[i]); } catch (e) { continue; }
+        for (var j = 0; j < found.length; j++) {
+          if (hiddenEls && hiddenEls.has(found[j])) continue;
+          markHidden(found[j]);
+          posts++;
+        }
+      }
+      matched['[home feed posts hidden]'] = posts;
+      var now = Date.now();
+      if (now - lastSugAt >= SUG_THROTTLE_MS) {
+        lastSugAt = now;
+        matched['[home suggestion rows hidden]'] = hideSuggestionUnits();
+        matched['[home extras after stories hidden]'] = sweepAfterStories();
+      }
     } else if (de.classList.contains('bestie-home')) {
       de.classList.remove('bestie-home');
     }
@@ -185,7 +296,7 @@
       while (node.parentElement && !node.parentElement.contains(keep) && node.parentElement !== document.body) {
         node = node.parentElement;
       }
-      node.style.setProperty('display', 'none', 'important');
+      markHidden(node);
       try { video.pause(); } catch (e) {}
       removed++;
     }
@@ -312,10 +423,26 @@
       // Most Instagram mutations are attribute-free DOM churn; skip runs while hidden.
       if (document.hidden) return;
       for (var i = 0; i < mutations.length; i++) {
-        if (mutations[i].addedNodes.length > 0) { scheduleApply(); return; }
+        var m = mutations[i];
+        if (m.addedNodes.length === 0) continue;
+        // Churn inside a subtree we already hid (the hidden feed keeps rendering in the
+        // background) must not re-trigger passes - otherwise apply() runs forever on home.
+        var t = m.target;
+        if (t && t.nodeType === 1 && t.closest && t.closest('[data-bestie-hidden]')) continue;
+        scheduleApply();
+        return;
       }
     });
     mo.observe(document.documentElement, { childList: true, subtree: true });
+    // Instagram rewrites the <html> class during hydration, which used to strip our
+    // bestie-home scope class without any childList mutation to wake us. Watch it directly.
+    var rootMo = new MutationObserver(function () {
+      if (cfg.storiesOnlyHome && isHome(location.pathname) &&
+          !document.documentElement.classList.contains('bestie-home')) {
+        scheduleApply();
+      }
+    });
+    rootMo.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     onRoute();
   }
   if (document.documentElement) startObserver();
