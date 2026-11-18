@@ -245,7 +245,7 @@
       var h = Math.max(0, Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0));
       if (w * h > bestArea) { bestArea = w * h; best = vids[i]; }
     }
-    return best;
+    return best || (vids.length ? vids[0] : null); // zero-size layout must not hide the only reel
   }
 
   function lockSingleReel() {
